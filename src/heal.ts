@@ -25,7 +25,7 @@ export type SiblingRun = {
   path: string;
   status: string | null;
   conclusion: string | null;
-  run_attempt: number;
+  run_attempt?: number;
   created_at: string;
 };
 
