@@ -1,0 +1,40 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn lint
+      - run: yarn typecheck
+      - run: yarn test
+
+  dist-fresh:
+    # Guards against forgetting to commit the ncc bundle. Rebuilds dist/
+    # from source and fails if it differs from the committed copy.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn build
+      - name: Verify dist/ is up to date
+        run: |
+          if ! git diff --quiet dist/; then
+            echo '::error::dist/ is stale. Run `yarn build` and commit the result.'
+            git diff dist/
+            exit 1
+          fi

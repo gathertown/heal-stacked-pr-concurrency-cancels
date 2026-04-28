@@ -1,0 +1,35 @@
+name: 'Heal Stacked-PR Concurrency Cancels'
+description: >-
+  Reruns workflow runs cancelled by `cancel-in-progress` when stacked-PR
+  tools (notably Graphite's `gt submit --stack`) deliver two webhooks per
+  submit, so the PR Checks sidebar reflects the surviving sibling's status.
+author: 'Gather'
+branding:
+  icon: 'refresh-cw'
+  color: 'green'
+inputs:
+  token:
+    description: >-
+      Token used to list workflow runs and dispatch reruns. Needs
+      `actions: write` and `pull-requests: read`. Defaults to the job's
+      GITHUB_TOKEN.
+    required: false
+    default: ${{ github.token }}
+  dry-run:
+    description: >-
+      When 'true', logs the heal decision without dispatching the rerun.
+      Useful for staged rollout.
+    required: false
+    default: 'false'
+  skip-stale-sha-check:
+    description: >-
+      When 'true', skips the pre-flight that bails if the PR head has
+      advanced past the cancelled run's SHA. Default keeps the check on,
+      which avoids cancelling current-SHA runs via PR-scoped concurrency
+      groups. Only flip this if you know your concurrency keys aren't
+      PR-scoped.
+    required: false
+    default: 'false'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
