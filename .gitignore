@@ -3,5 +3,7 @@ lib/
 coverage/
 .DS_Store
 *.log
+.idea/
+.vscode/
 
 # dist/ is intentionally checked in — it's the action's runtime entrypoint.

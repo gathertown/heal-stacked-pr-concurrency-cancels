@@ -4,4 +4,4 @@ module.exports = {
   testMatch: ['**/src/**/*.test.ts'],
   clearMocks: true,
   resetMocks: true,
-};
+}

@@ -4,13 +4,13 @@ Reruns workflow runs cancelled by `cancel-in-progress` when stacked-PR tools (no
 
 ## The problem
 
-Some stacked-PR tools — notably Graphite's `gt submit --stack` — can cause GitHub to deliver two `pull_request.synchronize` webhooks per PR. Per [Graphite's own troubleshooting docs](https://graphite.com/docs/troubleshooting): *"Because `gt submit` both performs a `git push` and a GitHub API call, occasionally GitHub will pick up both as a synchronize event on the PR."* With `cancel-in-progress: true` on a PR-scoped concurrency group, the two resulting workflow runs race and one gets killed within ~2 seconds.
+Some stacked-PR tools — notably Graphite's `gt submit --stack` — can cause GitHub to deliver two `pull_request.synchronize` webhooks per PR. Per [Graphite's own troubleshooting docs](https://graphite.com/docs/troubleshooting): _"Because `gt submit` both performs a `git push` and a GitHub API call, occasionally GitHub will pick up both as a synchronize event on the PR."_ With `cancel-in-progress: true` on a PR-scoped concurrency group, the two resulting workflow runs race and one gets killed within ~2 seconds.
 
 GitHub's PR Checks sidebar renders the workflow run with the **higher** `run_id`. When that's the one that gets cancelled, reviewers see a yellow-X even though the sibling succeeded and branch protection is satisfied. Branch protection passes; humans see red.
 
 ## What this does
 
-Runs on `workflow_run: completed` for any workflow you nominate. When it sees a cancelled first-attempt run that has a sibling at the same `head_sha` with a *lower* `run_id`, it concludes "this is the one the sidebar is showing" and reruns it. Attempt 2 produces a fresh, successful render. The sibling then gets cancelled by the concurrency group, but it's invisible to the UI.
+Runs on `workflow_run: completed` for any workflow you nominate. When it sees a cancelled first-attempt run that has a sibling at the same `head_sha` with a _lower_ `run_id`, it concludes "this is the one the sidebar is showing" and reruns it. Attempt 2 produces a fresh, successful render. The sibling then gets cancelled by the concurrency group, but it's invisible to the UI.
 
 Includes a pre-flight that bails if the PR head has advanced past the cancelled run's SHA — rerunning a stale SHA enters the same PR-scoped concurrency group as the current SHA's in-progress runs and would cancel them.
 
@@ -39,7 +39,7 @@ Then add a `workflow_run` listener that calls this action when one of your workf
 name: Heal Stacked-PR Concurrency Cancels
 on:
   workflow_run:
-    workflows: [Lint, Test, Build]   # the workflows you want healed
+    workflows: [Lint, Test, Build] # the workflows you want healed
     types: [completed]
 
 jobs:
@@ -60,20 +60,20 @@ The `if:` filter is important — it keeps the action from firing on already-rer
 
 ## Inputs
 
-| Input | Default | Description |
-| --- | --- | --- |
-| `token` | `${{ github.token }}` | Token with `actions: write` and `pull-requests: read`. |
-| `dry-run` | `false` | Log the decision without dispatching the rerun. |
-| `skip-stale-sha-check` | `false` | Skip the pre-flight that bails when the PR head moved past `self.head_sha`. Only flip this if your concurrency keys aren't PR-scoped. |
+| Input                  | Default               | Description                                                                                                                           |
+| ---------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `token`                | `${{ github.token }}` | Token with `actions: write` and `pull-requests: read`.                                                                                |
+| `dry-run`              | `false`               | Log the decision without dispatching the rerun.                                                                                       |
+| `skip-stale-sha-check` | `false`               | Skip the pre-flight that bails when the PR head moved past `self.head_sha`. Only flip this if your concurrency keys aren't PR-scoped. |
 
 ## Outputs
 
-| Output | Description |
-| --- | --- |
-| `decision` | `heal` or `skip`. |
-| `reason` | Human-readable reason for the decision. |
-| `rerun_run_id` | The run ID that was (or would have been) rerun. Only set when `decision=heal`. |
-| `dispatched` | `true` if a rerun was dispatched, `false` under dry-run. Only set when `decision=heal`. |
+| Output         | Description                                                                             |
+| -------------- | --------------------------------------------------------------------------------------- |
+| `decision`     | `heal` or `skip`.                                                                       |
+| `reason`       | Human-readable reason for the decision.                                                 |
+| `rerun_run_id` | The run ID that was (or would have been) rerun. Only set when `decision=heal`.          |
+| `dispatched`   | `true` if a rerun was dispatched, `false` under dry-run. Only set when `decision=heal`. |
 
 ## Required permissions
 
@@ -81,8 +81,8 @@ The calling job must declare:
 
 ```yaml
 permissions:
-  actions: write        # to dispatch the rerun
-  pull-requests: read   # to check whether the PR head has moved
+  actions: write # to dispatch the rerun
+  pull-requests: read # to check whether the PR head has moved
 ```
 
 ## License
