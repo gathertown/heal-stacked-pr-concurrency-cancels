@@ -3,6 +3,15 @@
   "version": "0.0.2",
   "private": true,
   "description": "GitHub Action that reruns workflow runs cancelled by cancel-in-progress when stacked-PR tools deliver two webhooks per submit.",
+  "author": "Andrew Smith <andrew@gather.town>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gathertown/heal-stacked-pr-concurrency-cancels.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gathertown/heal-stacked-pr-concurrency-cancels/issues"
+  },
+  "homepage": "https://github.com/gathertown/heal-stacked-pr-concurrency-cancels#readme",
   "main": "dist/index.js",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
