@@ -31561,7 +31561,7 @@ module.exports = {
 /***/ }),
 
 /***/ 5701:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
 
@@ -31573,9 +31573,44 @@ module.exports = {
 // cancelled, the GitHub PR Checks sidebar renders a yellow-X even though the sibling
 // succeeded. This action detects that case and reruns the cancelled higher-id run so
 // attempt 2 produces a successful render.
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.heal = heal;
-async function heal(opts) {
+exports.runHealAction = exports.heal = void 0;
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const heal = async (opts) => {
     const { octokit, payload: self, owner, repo, dryRun = false, skipStaleShaCheck = false } = opts;
     const log = opts.log ?? { info: () => { } };
     log.info('=== Zombie-cancel heal evaluating ===');
@@ -31644,54 +31679,12 @@ async function heal(opts) {
         'On success, the cancelled status will clear. On failure, the failure ' +
         'will surface to reviewers.');
     return { decision: 'heal', reason, runId: self.id, dispatched: true };
-}
-
-
-/***/ }),
-
-/***/ 1730:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-const core = __importStar(__nccwpck_require__(7484));
-const github = __importStar(__nccwpck_require__(3228));
-const heal_1 = __nccwpck_require__(5701);
-async function run() {
+};
+exports.heal = heal;
+// Action entrypoint: reads inputs from the GitHub Actions runtime, builds the
+// HealOctokit wrapper around @actions/github's REST client, calls heal(), and
+// writes the decision back as Action outputs.
+const runHealAction = async () => {
     try {
         if (github.context.eventName !== 'workflow_run') {
             core.setFailed(`This action must be triggered by 'workflow_run', got '${github.context.eventName}'.`);
@@ -31711,7 +31704,7 @@ async function run() {
             getPullRequest: (args) => rest.pulls.get(args),
             reRunWorkflow: (args) => rest.actions.reRunWorkflow(args),
         };
-        const result = await (0, heal_1.heal)({
+        const result = await (0, exports.heal)({
             octokit,
             payload,
             owner: github.context.repo.owner,
@@ -31730,8 +31723,8 @@ async function run() {
     catch (err) {
         core.setFailed(err instanceof Error ? err.message : String(err));
     }
-}
-void run();
+};
+exports.runHealAction = runHealAction;
 
 
 /***/ }),
@@ -36450,13 +36443,19 @@ legacyRestEndpointMethods.VERSION = VERSION;
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-/******/ 	
-/******/ 	// startup
-/******/ 	// Load entry module and return exports
-/******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(1730);
-/******/ 	module.exports = __webpack_exports__;
-/******/ 	
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be in strict mode.
+(() => {
+"use strict";
+var exports = __webpack_exports__;
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const heal_1 = __nccwpck_require__(5701);
+void (0, heal_1.runHealAction)();
+
+})();
+
+module.exports = __webpack_exports__;
 /******/ })()
 ;
 //# sourceMappingURL=index.js.map
