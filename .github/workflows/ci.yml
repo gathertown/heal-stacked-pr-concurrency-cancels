@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - run: yarn lint
+      - run: yarn typecheck
+      - run: yarn test
+
+  dist-fresh:
+    # Guards against forgetting to commit the ncc bundle. Rebuilds dist/
+    # from source and fails if it differs from the committed copy. Also
+    # runs on tag pushes so retag-major can gate on it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - run: yarn build
+      - name: Verify dist/ is up to date
+        run: |
+          if ! git diff --quiet dist/; then
+            echo '::error::dist/ is stale. Run `yarn build` and commit the result.'
+            git diff dist/
+            exit 1
+          fi
+
+  retag-major:
+    # Triggered when a vX.Y.Z tag is pushed. Re-points the floating major-
+    # version tag (vX) to the same commit so consumers pinned to @v1 pick
+    # up the new release. Gated on test + dist-fresh so a broken or stale-
+    # dist tag aborts the retag instead of shipping to consumers.
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: [test, dist-fresh]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Move major-version tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          MAJOR="${TAG%%.*}"        # v1.2.3 -> v1
+          git tag -f "$MAJOR" "$TAG"
+          git push origin -f "refs/tags/$MAJOR"

@@ -6,12 +6,18 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "ncc build src/main.ts -o dist --source-map --license licenses.txt",
-    "lint": "eslint src --ext .ts",
+    "lint": "prettier --check . && eslint src --ext .ts",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "all": "yarn format:check && yarn lint && yarn typecheck && yarn test && yarn build"
+    "all": "yarn lint && yarn typecheck && yarn test && yarn build",
+    "dist:check": "yarn build && git diff --exit-code -- dist",
+    "release:patch": "yarn version --new-version patch",
+    "release:minor": "yarn version --new-version minor",
+    "release:major": "yarn version --new-version major",
+    "preversion": "yarn all && git diff --quiet HEAD",
+    "version": "yarn build && git add dist",
+    "postversion": "node scripts/postversion.js"
   },
   "keywords": [
     "github-actions",
@@ -20,7 +26,8 @@
     "rerun",
     "graphite",
     "stacked-prs",
-    "concurrency"
+    "concurrency",
+    "cancelled"
   ],
   "license": "MIT",
   "dependencies": {

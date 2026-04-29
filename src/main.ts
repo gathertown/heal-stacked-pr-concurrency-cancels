@@ -50,4 +50,3 @@ const run = async (): Promise<void> => {
 }
 
 void run()
-
