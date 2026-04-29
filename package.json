@@ -8,7 +8,7 @@
     "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "build": "ncc build src/main.ts -o dist --source-map --license licenses.txt",
     "lint": "prettier --check . && eslint src --ext .ts",
-    "format": "prettier --write .",
+    "lint:fix": "prettier --write . && eslint src --ext .ts --fix",
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "all": "yarn lint && yarn typecheck && yarn test && yarn build",

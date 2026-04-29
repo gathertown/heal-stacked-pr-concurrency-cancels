@@ -10,7 +10,9 @@ const { version } = require('../package.json')
 const major = version.split('.')[0]
 const branch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim()
 if (branch !== 'main') {
-  console.error(`postversion: refusing to push, not on main (currently '${branch}'). Tag and commit are already created locally — push manually if intentional.`)
+  console.error(
+    `postversion: refusing to push, not on main (currently '${branch}'). Tag and commit are already created locally — push manually if intentional.`,
+  )
   process.exit(1)
 }
 
