@@ -1,4 +1,28 @@
-import { heal, type HealOctokit, type SiblingRun, type WorkflowRunPayload } from './heal'
+import * as core from '@actions/core'
+import * as github from '@actions/github'
+import {
+  heal,
+  runHealAction,
+  type HealOctokit,
+  type SiblingRun,
+  type WorkflowRunPayload,
+} from './heal'
+
+jest.mock('@actions/core', () => ({
+  getInput: jest.fn(),
+  getBooleanInput: jest.fn(),
+  setOutput: jest.fn(),
+  setFailed: jest.fn(),
+  info: jest.fn(),
+}))
+
+jest.mock('@actions/github', () => ({
+  context: { eventName: '', repo: { owner: '', repo: '' }, payload: {} },
+  getOctokit: jest.fn(),
+}))
+
+const mockedCore = jest.mocked(core)
+const mockedGithub = jest.mocked(github)
 
 const makePayload = (overrides: Partial<WorkflowRunPayload> = {}): WorkflowRunPayload => {
   return {
@@ -166,5 +190,45 @@ describe('heal', () => {
     const result = await heal({ ...baseArgs, octokit, payload })
 
     expect(result.decision).toEqual('skip')
+  })
+})
+
+describe('runHealAction', () => {
+  it('heals a stacked-PR concurrency cancellation end-to-end', async () => {
+    Object.assign(mockedGithub.context, {
+      eventName: 'workflow_run',
+      repo: { owner: 'my-org', repo: 'my-repo' },
+      payload: { workflow_run: makePayload() },
+    })
+
+    const reRunWorkflow = jest.fn().mockResolvedValue({})
+    mockedGithub.getOctokit.mockReturnValue({
+      rest: {
+        actions: {
+          listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
+            data: { workflow_runs: [makeSibling({ id: 100 })] },
+          }),
+          reRunWorkflow,
+        },
+        pulls: {
+          get: jest.fn().mockResolvedValue({ data: { head: { sha: 'sha-current' } } }),
+        },
+      },
+    } as unknown as ReturnType<typeof github.getOctokit>)
+
+    mockedCore.getInput.mockReturnValue('test-token')
+    mockedCore.getBooleanInput.mockReturnValue(false)
+
+    await runHealAction()
+
+    expect(mockedCore.setOutput).toHaveBeenCalledWith('decision', 'heal')
+    expect(mockedCore.setOutput).toHaveBeenCalledWith('rerun_run_id', '200')
+    expect(mockedCore.setOutput).toHaveBeenCalledWith('dispatched', 'true')
+    expect(reRunWorkflow).toHaveBeenCalledWith({
+      owner: 'my-org',
+      repo: 'my-repo',
+      run_id: 200,
+    })
+    expect(mockedCore.setFailed).not.toHaveBeenCalled()
   })
 })

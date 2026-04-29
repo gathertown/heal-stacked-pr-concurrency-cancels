@@ -7,6 +7,9 @@
 // succeeded. This action detects that case and reruns the cancelled higher-id run so
 // attempt 2 produces a successful render.
 
+import * as core from '@actions/core'
+import * as github from '@actions/github'
+
 export type WorkflowRunPayload = {
   id: number
   name: string
@@ -148,4 +151,54 @@ export const heal = async (opts: HealOptions): Promise<HealDecision> => {
   )
 
   return { decision: 'heal', reason, runId: self.id, dispatched: true }
+}
+
+// Action entrypoint: reads inputs from the GitHub Actions runtime, builds the
+// HealOctokit wrapper around @actions/github's REST client, calls heal(), and
+// writes the decision back as Action outputs.
+export const runHealAction = async (): Promise<void> => {
+  try {
+    if (github.context.eventName !== 'workflow_run') {
+      core.setFailed(
+        `This action must be triggered by 'workflow_run', got '${github.context.eventName}'.`,
+      )
+      return
+    }
+
+    const payload = github.context.payload.workflow_run as WorkflowRunPayload | undefined
+    if (!payload) {
+      core.setFailed('Missing workflow_run payload.')
+      return
+    }
+
+    const token = core.getInput('token', { required: true })
+    const dryRun = core.getBooleanInput('dry-run')
+    const skipStaleShaCheck = core.getBooleanInput('skip-stale-sha-check')
+
+    const rest = github.getOctokit(token).rest
+    const octokit: HealOctokit = {
+      listWorkflowRunsForRepo: (args) => rest.actions.listWorkflowRunsForRepo(args),
+      getPullRequest: (args) => rest.pulls.get(args),
+      reRunWorkflow: (args) => rest.actions.reRunWorkflow(args),
+    }
+
+    const result = await heal({
+      octokit,
+      payload,
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      dryRun,
+      skipStaleShaCheck,
+      log: { info: (msg) => core.info(msg) },
+    })
+
+    core.setOutput('decision', result.decision)
+    core.setOutput('reason', result.reason)
+    if (result.decision === 'heal') {
+      core.setOutput('rerun_run_id', String(result.runId))
+      core.setOutput('dispatched', String(result.dispatched))
+    }
+  } catch (err) {
+    core.setFailed(err instanceof Error ? err.message : String(err))
+  }
 }
