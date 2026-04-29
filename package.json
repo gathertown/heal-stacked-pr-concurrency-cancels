@@ -1,6 +1,6 @@
 {
   "name": "heal-stacked-pr-concurrency-cancels",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "description": "GitHub Action that reruns workflow runs cancelled by cancel-in-progress when stacked-PR tools deliver two webhooks per submit.",
   "main": "dist/index.js",
