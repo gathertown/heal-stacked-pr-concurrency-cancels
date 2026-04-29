@@ -1,6 +1,6 @@
 import { heal, type HealOctokit, type SiblingRun, type WorkflowRunPayload } from './heal'
 
-function makePayload(overrides: Partial<WorkflowRunPayload> = {}): WorkflowRunPayload {
+const makePayload = (overrides: Partial<WorkflowRunPayload> = {}): WorkflowRunPayload => {
   return {
     id: 200,
     name: 'Lint',
@@ -16,7 +16,7 @@ function makePayload(overrides: Partial<WorkflowRunPayload> = {}): WorkflowRunPa
   }
 }
 
-function makeSibling(overrides: Partial<SiblingRun> = {}): SiblingRun {
+const makeSibling = (overrides: Partial<SiblingRun> = {}): SiblingRun => {
   return {
     id: 100,
     path: '.github/workflows/lint.yml',
@@ -37,7 +37,7 @@ function makeOctokit(overrides: Partial<HealOctokit> = {}): jest.Mocked<HealOcto
   } as jest.Mocked<HealOctokit>
 }
 
-const baseArgs = { owner: 'gather-town', repo: 'gather-town-v2' }
+const baseArgs = { owner: 'my-org', repo: 'my-repo' }
 
 describe('heal', () => {
   it('skips when no sibling exists', async () => {
@@ -60,7 +60,7 @@ describe('heal', () => {
     const sibling = makeSibling({ id: 200 })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
-        data: { workflow_runs: [payload as unknown as SiblingRun, sibling] },
+        data: { workflow_runs: [sibling] },
       }),
     })
 
@@ -75,7 +75,7 @@ describe('heal', () => {
     const sibling = makeSibling({ id: 100 })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
-        data: { workflow_runs: [payload as unknown as SiblingRun, sibling] },
+        data: { workflow_runs: [sibling] },
       }),
     })
 
@@ -91,7 +91,7 @@ describe('heal', () => {
     const sibling = makeSibling({ id: 100 })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
-        data: { workflow_runs: [payload as unknown as SiblingRun, sibling] },
+        data: { workflow_runs: [sibling] },
       }),
       getPullRequest: jest.fn().mockResolvedValue({ data: { head: { sha: 'sha-newer' } } }),
     })
@@ -108,7 +108,7 @@ describe('heal', () => {
     const sibling = makeSibling({ id: 100 })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
-        data: { workflow_runs: [payload as unknown as SiblingRun, sibling] },
+        data: { workflow_runs: [sibling] },
       }),
     })
 
@@ -128,7 +128,7 @@ describe('heal', () => {
     const sibling = makeSibling({ id: 100 })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
-        data: { workflow_runs: [payload as unknown as SiblingRun, sibling] },
+        data: { workflow_runs: [sibling] },
       }),
     })
 
@@ -143,7 +143,7 @@ describe('heal', () => {
     const sibling = makeSibling({ id: 100 })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
-        data: { workflow_runs: [payload as unknown as SiblingRun, sibling] },
+        data: { workflow_runs: [sibling] },
       }),
       getPullRequest: jest.fn(),
     })
@@ -159,7 +159,7 @@ describe('heal', () => {
     const otherWorkflow = makeSibling({ id: 100, path: '.github/workflows/other.yml' })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
-        data: { workflow_runs: [payload as unknown as SiblingRun, otherWorkflow] },
+        data: { workflow_runs: [otherWorkflow] },
       }),
     })
 

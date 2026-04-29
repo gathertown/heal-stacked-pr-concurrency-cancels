@@ -2,7 +2,7 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import { heal, type HealOctokit, type WorkflowRunPayload } from './heal'
 
-async function run(): Promise<void> {
+const run = async (): Promise<void> => {
   try {
     if (github.context.eventName !== 'workflow_run') {
       core.setFailed(
@@ -50,3 +50,4 @@ async function run(): Promise<void> {
 }
 
 void run()
+

@@ -60,7 +60,7 @@ export type HealDecision =
   | { decision: 'skip'; reason: string }
   | { decision: 'heal'; reason: string; runId: number; dispatched: boolean }
 
-export async function heal(opts: HealOptions): Promise<HealDecision> {
+export const heal = async (opts: HealOptions): Promise<HealDecision> => {
   const { octokit, payload: self, owner, repo, dryRun = false, skipStaleShaCheck = false } = opts
   const log = opts.log ?? { info: () => {} }
 

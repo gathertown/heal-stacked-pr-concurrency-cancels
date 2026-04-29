@@ -43,17 +43,50 @@ on:
     types: [completed]
 
 jobs:
-  heal:
+  heal: # whatever name you want
     if: >-
       github.event.workflow_run.conclusion == 'cancelled'
       && github.event.workflow_run.run_attempt == 1
       && github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
-    permissions:
+    permissions: # these permissions are required for the action to work
       actions: write
       pull-requests: read
     steps:
-      - uses: gathertown/heal-stacked-pr-concurrency-cancels@v1
+      - id: heal
+        uses: gathertown/heal-stacked-pr-concurrency-cancels@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          dry-run: false
+          skip-stale-sha-check: false
+      - name: Log decision # optional, for demo / debugging
+        run: |
+          echo "decision=${{ steps.heal.outputs.decision }}"
+          echo "reason=${{ steps.heal.outputs.reason }}"
+          echo "rerun_run_id=${{ steps.heal.outputs.rerun_run_id }}"
+          echo "dispatched=${{ steps.heal.outputs.dispatched }}"
+```
+
+With those inputs, the action evaluates the cancelled run and emits one of:
+
+```text
+# When a lower-id sibling exists at the same head SHA
+decision=heal
+reason=Lower-id sibling 12345678901 succeeded at same head_sha; rerunning to refresh sidebar
+rerun_run_id=12345678901
+dispatched=true
+
+# When the PR head has advanced past the cancelled run's SHA
+decision=skip
+reason=PR head advanced past cancelled run's head_sha; rerun would cancel current runs
+rerun_run_id=
+dispatched=
+
+# When no sibling matches the heal pattern
+decision=skip
+reason=No lower-id sibling found at head_sha
+rerun_run_id=
+dispatched=
 ```
 
 The `if:` filter is important — it keeps the action from firing on already-rerun attempts (preventing self-loops) and on non-PR events.
