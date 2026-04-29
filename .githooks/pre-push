@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Verifies dist/ is up to date before pushing. ncc bundles src/ -> dist/index.js,
+# and dist/ is the action's runtime entrypoint — a stale dist ships broken code
+# to consumers. Mirrors the dist-fresh CI job; fail locally before the push so
+# you never have to find out from a red CI run after the fact.
+
+set -euo pipefail
+
+echo "[pre-push] Verifying dist/ is fresh..."
+yarn --silent build > /dev/null
+
+if ! git diff --quiet -- dist/; then
+  echo
+  echo "[pre-push] ERROR: dist/ is stale relative to src/. Push aborted."
+  echo "  Run:  yarn build && git add dist && git commit -m 'chore: rebuild dist'"
+  echo "  Then re-push."
+  echo
+  git diff --stat -- dist/
+  exit 1
+fi
+
+echo "[pre-push] dist/ is fresh."
