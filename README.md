@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="heal-ci-icon.png" alt="Heal CI" width="200">
+</p>
+
 # Heal Stacked-PR Concurrency Cancels
 
 Reruns workflow runs cancelled by `cancel-in-progress` when stacked-PR tools (notably [Graphite's `gt submit --stack`](https://graphite.com/)) can deliver two webhooks per submit, so the PR Checks sidebar reflects the surviving sibling's status.
