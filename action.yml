@@ -1,8 +1,5 @@
 name: 'Heal Stacked-PR Concurrency Cancels'
-description: >-
-  Reruns workflow runs cancelled by `cancel-in-progress` when stacked-PR
-  tools (notably Graphite's `gt submit --stack`) deliver two webhooks per
-  submit, so the PR Checks sidebar reflects the surviving sibling's status.
+description: 'Reruns runs cancelled by cancel-in-progress due to duplicate stacked-PR webhooks (e.g. Graphite).'
 author: 'Gather'
 branding:
   icon: 'heart'
