@@ -2,16 +2,18 @@
 //
 // Background: `gt submit --stack` fires two `pull_request.synchronize` webhooks per PR
 // (git push + Graphite's REST follow-up). With `cancel-in-progress: true`, one of the
-// resulting workflow runs gets killed within ~2s. When the higher-id run is the one
-// cancelled, the GitHub PR Checks sidebar renders a yellow-X even though the sibling
-// succeeded. This action detects that case and reruns the cancelled higher-id run so
-// attempt 2 produces a successful render.
+// resulting workflow runs gets killed within ~2s. GitHub's PR Checks sidebar renders the
+// run with the highest check_suite_id. When the cancelled run has the higher
+// check_suite_id, the sidebar shows a yellow-X even though the sibling succeeded. This
+// action detects that case and reruns the cancelled run so attempt 2 produces a
+// successful render.
 
 import * as core from '@actions/core'
 import * as github from '@actions/github'
 
 export type WorkflowRunPayload = {
   id: number
+  check_suite_id: number
   name: string
   path: string
   run_attempt: number
@@ -25,6 +27,7 @@ export type WorkflowRunPayload = {
 
 export type SiblingRun = {
   id: number
+  check_suite_id?: number
   path: string
   status: string | null
   conclusion: string | null
@@ -70,6 +73,7 @@ export const heal = async (opts: HealOptions): Promise<HealDecision> => {
   log.info('=== Zombie-cancel heal evaluating ===')
   log.info(`workflow         = ${self.name} (path=${self.path})`)
   log.info(`self.run_id      = ${self.id}`)
+  log.info(`self.check_suite = ${self.check_suite_id}`)
   log.info(`self.run_attempt = ${self.run_attempt}`)
   log.info(`self.conclusion  = ${self.conclusion}`)
   log.info(`self.event       = ${self.event}`)
@@ -91,18 +95,23 @@ export const heal = async (opts: HealOptions): Promise<HealDecision> => {
   log.info(`Siblings with same workflow path (${self.path}): ${siblings.length}`)
   for (const s of siblings) {
     log.info(
-      `  sibling run_id=${s.id} status=${s.status} conclusion=${s.conclusion ?? 'null'} ` +
-        `attempt=${s.run_attempt} created_at=${s.created_at}`,
+      `  sibling run_id=${s.id} check_suite=${s.check_suite_id} status=${s.status} ` +
+        `conclusion=${s.conclusion ?? 'null'} attempt=${s.run_attempt} created_at=${s.created_at}`,
     )
   }
 
-  if (siblings.length === 0) {
-    const reason = 'no sibling with same workflow path found at this SHA'
+  const lowerSuiteSibling = siblings.find(
+    (r) => r.check_suite_id != null && r.check_suite_id < self.check_suite_id,
+  )
+  if (!lowerSuiteSibling) {
+    const reason =
+      siblings.length === 0
+        ? 'no sibling with same workflow path found at this SHA'
+        : 'self does not have the highest check_suite_id — the UI is rendering the sibling, not self'
     log.info('Decision: NO HEAL.')
     log.info(`Reasoning: ${reason}.`)
     return { decision: 'skip', reason }
   }
-  const sibling = siblings[0]
 
   const pr = self.pull_requests[0]
   if (!pr) {
@@ -131,9 +140,9 @@ export const heal = async (opts: HealOptions): Promise<HealDecision> => {
   }
 
   const reason =
-    `Cancelled run self.id=${self.id} has a sibling run_id=${sibling.id} ` +
-    `(status=${sibling.status ?? 'null'}) at the same SHA. PR #${pr.number} ` +
-    `head is still ${self.head_sha}. Rerunning self regardless of sibling status.`
+    `self.check_suite_id=${self.check_suite_id} > sibling.check_suite_id=${lowerSuiteSibling.check_suite_id} ` +
+    `(sibling run_id=${lowerSuiteSibling.id}). PR #${pr.number} head is still ${self.head_sha}. ` +
+    'Self has the highest check_suite_id so the UI is rendering this cancelled run. Rerunning self.'
   log.info('Decision: HEAL.')
   log.info(`Reasoning: ${reason}`)
 

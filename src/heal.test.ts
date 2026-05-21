@@ -27,6 +27,7 @@ const mockedGithub = jest.mocked(github)
 const makePayload = (overrides: Partial<WorkflowRunPayload> = {}): WorkflowRunPayload => {
   return {
     id: 200,
+    check_suite_id: 9000,
     name: 'Lint',
     path: '.github/workflows/lint.yml',
     run_attempt: 1,
@@ -43,6 +44,7 @@ const makePayload = (overrides: Partial<WorkflowRunPayload> = {}): WorkflowRunPa
 const makeSibling = (overrides: Partial<SiblingRun> = {}): SiblingRun => {
   return {
     id: 100,
+    check_suite_id: 8000,
     path: '.github/workflows/lint.yml',
     status: 'completed',
     conclusion: 'success',
@@ -79,9 +81,25 @@ describe('heal', () => {
     expect(octokit.reRunWorkflow).not.toHaveBeenCalled()
   })
 
-  it('heals when sibling has higher run_id (self is the lower-id cancelled run)', async () => {
-    const payload = makePayload({ id: 100 })
-    const sibling = makeSibling({ id: 200 })
+  it('skips when self has the lower check_suite_id (UI is rendering the sibling)', async () => {
+    const payload = makePayload({ check_suite_id: 8000 })
+    const sibling = makeSibling({ check_suite_id: 9000 })
+    const octokit = makeOctokit({
+      listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
+        data: { workflow_runs: [sibling] },
+      }),
+    })
+
+    const result = await heal({ ...baseArgs, octokit, payload })
+
+    expect(result.decision).toEqual('skip')
+    expect(result.reason).toMatch(/UI is rendering the sibling/)
+    expect(octokit.reRunWorkflow).not.toHaveBeenCalled()
+  })
+
+  it('heals when self has higher check_suite_id but lower run_id (GCO-1620 race)', async () => {
+    const payload = makePayload({ id: 100, check_suite_id: 9000 })
+    const sibling = makeSibling({ id: 200, check_suite_id: 8000, status: 'queued', conclusion: null })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
         data: { workflow_runs: [sibling] },
@@ -94,26 +112,9 @@ describe('heal', () => {
     expect(octokit.reRunWorkflow).toHaveBeenCalledWith({ ...baseArgs, run_id: 100 })
   })
 
-  it('heals immediately when sibling is still queued (race condition from GCO-1620)', async () => {
-    // The race: cancel fires before the surviving sibling finishes; the old
-    // lower-id guard blocked healing here. Now we heal regardless of sibling status.
-    const payload = makePayload({ id: 100 })
-    const sibling = makeSibling({ id: 200, status: 'queued', conclusion: null })
-    const octokit = makeOctokit({
-      listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
-        data: { workflow_runs: [sibling] },
-      }),
-    })
-
-    const result = await heal({ ...baseArgs, octokit, payload })
-
-    expect(result.decision).toEqual('heal')
-    expect(octokit.reRunWorkflow).toHaveBeenCalledWith({ ...baseArgs, run_id: 100 })
-  })
-
-  it('heals immediately when sibling is in_progress', async () => {
-    const payload = makePayload({ id: 100 })
-    const sibling = makeSibling({ id: 200, status: 'in_progress', conclusion: null })
+  it('heals when sibling is in_progress and self has higher check_suite_id', async () => {
+    const payload = makePayload({ id: 100, check_suite_id: 9000 })
+    const sibling = makeSibling({ id: 200, check_suite_id: 8000, status: 'in_progress', conclusion: null })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
         data: { workflow_runs: [sibling] },
@@ -159,7 +160,7 @@ describe('heal', () => {
     expect(octokit.reRunWorkflow).not.toHaveBeenCalled()
   })
 
-  it('heals when self is newer arrival and PR head still matches', async () => {
+  it('heals when self has higher check_suite_id and PR head still matches', async () => {
     const payload = makePayload()
     const sibling = makeSibling({ id: 100 })
     const octokit = makeOctokit({
