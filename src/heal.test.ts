@@ -99,7 +99,12 @@ describe('heal', () => {
 
   it('heals when self has higher check_suite_id but lower run_id (GCO-1620 race)', async () => {
     const payload = makePayload({ id: 100, check_suite_id: 9000 })
-    const sibling = makeSibling({ id: 200, check_suite_id: 8000, status: 'queued', conclusion: null })
+    const sibling = makeSibling({
+      id: 200,
+      check_suite_id: 8000,
+      status: 'queued',
+      conclusion: null,
+    })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
         data: { workflow_runs: [sibling] },
@@ -114,7 +119,12 @@ describe('heal', () => {
 
   it('heals when sibling is in_progress and self has higher check_suite_id', async () => {
     const payload = makePayload({ id: 100, check_suite_id: 9000 })
-    const sibling = makeSibling({ id: 200, check_suite_id: 8000, status: 'in_progress', conclusion: null })
+    const sibling = makeSibling({
+      id: 200,
+      check_suite_id: 8000,
+      status: 'in_progress',
+      conclusion: null,
+    })
     const octokit = makeOctokit({
       listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
         data: { workflow_runs: [sibling] },
