@@ -31569,10 +31569,11 @@ module.exports = {
 //
 // Background: `gt submit --stack` fires two `pull_request.synchronize` webhooks per PR
 // (git push + Graphite's REST follow-up). With `cancel-in-progress: true`, one of the
-// resulting workflow runs gets killed within ~2s. When the higher-id run is the one
-// cancelled, the GitHub PR Checks sidebar renders a yellow-X even though the sibling
-// succeeded. This action detects that case and reruns the cancelled higher-id run so
-// attempt 2 produces a successful render.
+// resulting workflow runs gets killed within ~2s. GitHub's PR Checks sidebar renders the
+// run with the highest check_suite_id. When the cancelled run has the higher
+// check_suite_id, the sidebar shows a yellow-X even though the sibling succeeded. This
+// action detects that case and reruns the cancelled run so attempt 2 produces a
+// successful render.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -31616,6 +31617,7 @@ const heal = async (opts) => {
     log.info('=== Zombie-cancel heal evaluating ===');
     log.info(`workflow         = ${self.name} (path=${self.path})`);
     log.info(`self.run_id      = ${self.id}`);
+    log.info(`self.check_suite = ${self.check_suite_id}`);
     log.info(`self.run_attempt = ${self.run_attempt}`);
     log.info(`self.conclusion  = ${self.conclusion}`);
     log.info(`self.event       = ${self.event}`);
@@ -31632,12 +31634,14 @@ const heal = async (opts) => {
     const siblings = workflow_runs.filter((r) => r.id !== self.id && r.path === self.path);
     log.info(`Siblings with same workflow path (${self.path}): ${siblings.length}`);
     for (const s of siblings) {
-        log.info(`  sibling run_id=${s.id} status=${s.status} conclusion=${s.conclusion ?? 'null'} ` +
-            `attempt=${s.run_attempt} created_at=${s.created_at}`);
+        log.info(`  sibling run_id=${s.id} check_suite=${s.check_suite_id} status=${s.status} ` +
+            `conclusion=${s.conclusion ?? 'null'} attempt=${s.run_attempt} created_at=${s.created_at}`);
     }
-    const lowerIdSibling = siblings.find((r) => r.id < self.id);
-    if (!lowerIdSibling) {
-        const reason = 'no sibling with lower run_id found';
+    const lowerSuiteSibling = siblings.find((r) => r.check_suite_id != null && r.check_suite_id < self.check_suite_id);
+    if (!lowerSuiteSibling) {
+        const reason = siblings.length === 0
+            ? 'no sibling with same workflow path found at this SHA'
+            : 'self does not have the highest check_suite_id — the UI is rendering the sibling, not self';
         log.info('Decision: NO HEAL.');
         log.info(`Reasoning: ${reason}.`);
         return { decision: 'skip', reason };
@@ -31664,9 +31668,9 @@ const heal = async (opts) => {
             return { decision: 'skip', reason };
         }
     }
-    const reason = `self.id=${self.id} > sibling.id=${lowerIdSibling.id}, and PR #${pr.number} ` +
-        `head is still ${self.head_sha}. Self is the newer run and was cancelled, so ` +
-        'the PR Checks UI is rendering this workflow as cancelled. Rerunning self.';
+    const reason = `self.check_suite_id=${self.check_suite_id} > sibling.check_suite_id=${lowerSuiteSibling.check_suite_id} ` +
+        `(sibling run_id=${lowerSuiteSibling.id}). PR #${pr.number} head is still ${self.head_sha}. ` +
+        'Self has the highest check_suite_id so the UI is rendering this cancelled run. Rerunning self.';
     log.info('Decision: HEAL.');
     log.info(`Reasoning: ${reason}`);
     if (dryRun) {
