@@ -96,13 +96,13 @@ export const heal = async (opts: HealOptions): Promise<HealDecision> => {
     )
   }
 
-  const lowerIdSibling = siblings.find((r) => r.id < self.id)
-  if (!lowerIdSibling) {
-    const reason = 'no sibling with lower run_id found'
+  if (siblings.length === 0) {
+    const reason = 'no sibling with same workflow path found at this SHA'
     log.info('Decision: NO HEAL.')
     log.info(`Reasoning: ${reason}.`)
     return { decision: 'skip', reason }
   }
+  const sibling = siblings[0]
 
   const pr = self.pull_requests[0]
   if (!pr) {
@@ -131,9 +131,9 @@ export const heal = async (opts: HealOptions): Promise<HealDecision> => {
   }
 
   const reason =
-    `self.id=${self.id} > sibling.id=${lowerIdSibling.id}, and PR #${pr.number} ` +
-    `head is still ${self.head_sha}. Self is the newer run and was cancelled, so ` +
-    'the PR Checks UI is rendering this workflow as cancelled. Rerunning self.'
+    `Cancelled run self.id=${self.id} has a sibling run_id=${sibling.id} ` +
+    `(status=${sibling.status ?? 'null'}) at the same SHA. PR #${pr.number} ` +
+    `head is still ${self.head_sha}. Rerunning self regardless of sibling status.`
   log.info('Decision: HEAL.')
   log.info(`Reasoning: ${reason}`)
 

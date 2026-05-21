@@ -75,11 +75,11 @@ describe('heal', () => {
     const result = await heal({ ...baseArgs, octokit, payload })
 
     expect(result.decision).toEqual('skip')
-    expect(result.reason).toMatch(/no sibling/)
+    expect(result.reason).toMatch(/no sibling with same workflow path/)
     expect(octokit.reRunWorkflow).not.toHaveBeenCalled()
   })
 
-  it('skips when only sibling has higher run_id (we are the older arrival)', async () => {
+  it('heals when sibling has higher run_id (self is the lower-id cancelled run)', async () => {
     const payload = makePayload({ id: 100 })
     const sibling = makeSibling({ id: 200 })
     const octokit = makeOctokit({
@@ -90,8 +90,40 @@ describe('heal', () => {
 
     const result = await heal({ ...baseArgs, octokit, payload })
 
-    expect(result.decision).toEqual('skip')
-    expect(octokit.reRunWorkflow).not.toHaveBeenCalled()
+    expect(result.decision).toEqual('heal')
+    expect(octokit.reRunWorkflow).toHaveBeenCalledWith({ ...baseArgs, run_id: 100 })
+  })
+
+  it('heals immediately when sibling is still queued (race condition from GCO-1620)', async () => {
+    // The race: cancel fires before the surviving sibling finishes; the old
+    // lower-id guard blocked healing here. Now we heal regardless of sibling status.
+    const payload = makePayload({ id: 100 })
+    const sibling = makeSibling({ id: 200, status: 'queued', conclusion: null })
+    const octokit = makeOctokit({
+      listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
+        data: { workflow_runs: [sibling] },
+      }),
+    })
+
+    const result = await heal({ ...baseArgs, octokit, payload })
+
+    expect(result.decision).toEqual('heal')
+    expect(octokit.reRunWorkflow).toHaveBeenCalledWith({ ...baseArgs, run_id: 100 })
+  })
+
+  it('heals immediately when sibling is in_progress', async () => {
+    const payload = makePayload({ id: 100 })
+    const sibling = makeSibling({ id: 200, status: 'in_progress', conclusion: null })
+    const octokit = makeOctokit({
+      listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
+        data: { workflow_runs: [sibling] },
+      }),
+    })
+
+    const result = await heal({ ...baseArgs, octokit, payload })
+
+    expect(result.decision).toEqual('heal')
+    expect(octokit.reRunWorkflow).toHaveBeenCalledWith({ ...baseArgs, run_id: 100 })
   })
 
   it('skips when payload has no PR', async () => {

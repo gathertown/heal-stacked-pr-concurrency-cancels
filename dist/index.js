@@ -31635,13 +31635,13 @@ const heal = async (opts) => {
         log.info(`  sibling run_id=${s.id} status=${s.status} conclusion=${s.conclusion ?? 'null'} ` +
             `attempt=${s.run_attempt} created_at=${s.created_at}`);
     }
-    const lowerIdSibling = siblings.find((r) => r.id < self.id);
-    if (!lowerIdSibling) {
-        const reason = 'no sibling with lower run_id found';
+    if (siblings.length === 0) {
+        const reason = 'no sibling with same workflow path found at this SHA';
         log.info('Decision: NO HEAL.');
         log.info(`Reasoning: ${reason}.`);
         return { decision: 'skip', reason };
     }
+    const sibling = siblings[0];
     const pr = self.pull_requests[0];
     if (!pr) {
         const reason = 'workflow_run payload has no associated PR';
@@ -31664,9 +31664,9 @@ const heal = async (opts) => {
             return { decision: 'skip', reason };
         }
     }
-    const reason = `self.id=${self.id} > sibling.id=${lowerIdSibling.id}, and PR #${pr.number} ` +
-        `head is still ${self.head_sha}. Self is the newer run and was cancelled, so ` +
-        'the PR Checks UI is rendering this workflow as cancelled. Rerunning self.';
+    const reason = `Cancelled run self.id=${self.id} has a sibling run_id=${sibling.id} ` +
+        `(status=${sibling.status ?? 'null'}) at the same SHA. PR #${pr.number} ` +
+        `head is still ${self.head_sha}. Rerunning self regardless of sibling status.`;
     log.info('Decision: HEAL.');
     log.info(`Reasoning: ${reason}`);
     if (dryRun) {
