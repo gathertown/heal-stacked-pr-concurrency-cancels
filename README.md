@@ -10,11 +10,11 @@ Reruns workflow runs cancelled by `cancel-in-progress` when stacked-PR tools (no
 
 Some stacked-PR tools — notably Graphite's `gt submit --stack` — can cause GitHub to deliver two `pull_request.synchronize` webhooks per PR. Per [Graphite's own troubleshooting docs](https://graphite.com/docs/troubleshooting): _"Because `gt submit` both performs a `git push` and a GitHub API call, occasionally GitHub will pick up both as a synchronize event on the PR."_ With `cancel-in-progress: true` on a PR-scoped concurrency group, the two resulting workflow runs race and one gets killed within ~2 seconds.
 
-GitHub's PR Checks sidebar renders the workflow run with the **higher** `run_id`. When that's the one that gets cancelled, reviewers see a yellow-X even though the sibling succeeded and branch protection is satisfied. Branch protection passes; humans see red.
+GitHub's PR Checks sidebar renders the workflow run with the **highest `check_suite_id`**. When the cancelled run has the higher `check_suite_id` — which doesn't necessarily correspond to the higher `run_id` — reviewers see a yellow-X even though the sibling succeeded and branch protection is satisfied. Branch protection passes; humans see red.
 
 ## What this does
 
-Runs on `workflow_run: completed` for any workflow you nominate. When it sees a cancelled first-attempt run that has a sibling at the same `head_sha` with a _lower_ `run_id`, it concludes "this is the one the sidebar is showing" and reruns it. Attempt 2 produces a fresh, successful render. The sibling then gets cancelled by the concurrency group, but it's invisible to the UI.
+Runs on `workflow_run: completed` for any workflow you nominate. When it sees a cancelled first-attempt run that has a sibling at the same `head_sha` with a _lower_ `check_suite_id`, it concludes "this is the one the sidebar is showing" and reruns it. Attempt 2 produces a fresh, successful render.
 
 Includes a pre-flight that bails if the PR head has advanced past the cancelled run's SHA — rerunning a stale SHA enters the same PR-scoped concurrency group as the current SHA's in-progress runs and would cancel them.
 
@@ -74,10 +74,10 @@ jobs:
 With those inputs, the action evaluates the cancelled run and emits one of:
 
 ```text
-# When a lower-id sibling exists at the same head SHA
+# When self has the highest check_suite_id and a sibling exists at the same head SHA
 decision=heal
-reason=Lower-id sibling 12345678901 succeeded at same head_sha; rerunning to refresh sidebar
-rerun_run_id=12345678901
+reason=self.check_suite_id=70053435199 > sibling.check_suite_id=70053435118 ...
+rerun_run_id=26204503356
 dispatched=true
 
 # When the PR head has advanced past the cancelled run's SHA
@@ -86,9 +86,15 @@ reason=PR head advanced past cancelled run's head_sha; rerun would cancel curren
 rerun_run_id=
 dispatched=
 
+# When self does not have the highest check_suite_id
+decision=skip
+reason=self does not have the highest check_suite_id — the UI is rendering the sibling, not self
+rerun_run_id=
+dispatched=
+
 # When no sibling matches the heal pattern
 decision=skip
-reason=No lower-id sibling found at head_sha
+reason=no sibling with same workflow path found at this SHA
 rerun_run_id=
 dispatched=
 ```
