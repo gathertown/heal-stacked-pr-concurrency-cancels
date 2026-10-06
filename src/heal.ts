@@ -103,7 +103,12 @@ export const heal = async (opts: HealOptions): Promise<HealDecision> => {
   const lowerSuiteSibling = siblings.find(
     (r) => r.check_suite_id != null && r.check_suite_id < self.check_suite_id,
   )
-  if (!lowerSuiteSibling) {
+  // A rerun joins the PR's concurrency group, so rerunning anything but the highest suite would
+  // cancel the run the UI is actually rendering.
+  const higherSuiteSibling = siblings.find(
+    (r) => r.check_suite_id != null && r.check_suite_id > self.check_suite_id,
+  )
+  if (!lowerSuiteSibling || higherSuiteSibling) {
     const reason =
       siblings.length === 0
         ? 'no sibling with same workflow path found at this SHA'

@@ -14,7 +14,7 @@ GitHub's PR Checks sidebar renders the workflow run with the **highest `check_su
 
 ## What this does
 
-Runs on `workflow_run: completed` for any workflow you nominate. When it sees a cancelled first-attempt run that has a sibling at the same `head_sha` with a _lower_ `check_suite_id`, it concludes "this is the one the sidebar is showing" and reruns it. Attempt 2 produces a fresh, successful render.
+Runs on `workflow_run: completed` for any workflow you nominate. When it sees a cancelled first-attempt run that has the _highest_ `check_suite_id` among the runs at the same `head_sha`, it concludes "this is the one the sidebar is showing" and reruns it. Attempt 2 produces a fresh, successful render.
 
 Includes a pre-flight that bails if the PR head has advanced past the cancelled run's SHA — rerunning a stale SHA enters the same PR-scoped concurrency group as the current SHA's in-progress runs and would cancel them.
 
