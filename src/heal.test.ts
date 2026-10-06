@@ -97,6 +97,23 @@ describe('heal', () => {
     expect(octokit.reRunWorkflow).not.toHaveBeenCalled()
   })
 
+  it('skips when one sibling has a lower check_suite_id and another a higher one', async () => {
+    const payload = makePayload({ check_suite_id: 9000 })
+    const lowerSibling = makeSibling({ id: 100, check_suite_id: 8000, conclusion: 'cancelled' })
+    const higherSibling = makeSibling({ id: 300, check_suite_id: 10000 })
+    const octokit = makeOctokit({
+      listWorkflowRunsForRepo: jest.fn().mockResolvedValue({
+        data: { workflow_runs: [lowerSibling, higherSibling] },
+      }),
+    })
+
+    const result = await heal({ ...baseArgs, octokit, payload })
+
+    expect(result.decision).toEqual('skip')
+    expect(result.reason).toMatch(/UI is rendering the sibling/)
+    expect(octokit.reRunWorkflow).not.toHaveBeenCalled()
+  })
+
   it('heals when self has higher check_suite_id but lower run_id (GCO-1620 race)', async () => {
     const payload = makePayload({ id: 100, check_suite_id: 9000 })
     const sibling = makeSibling({
